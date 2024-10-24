@@ -1,0 +1,6 @@
+requests 
+biopython 
+duckdb 
+pandas
+beautifulsoup4
+prefect

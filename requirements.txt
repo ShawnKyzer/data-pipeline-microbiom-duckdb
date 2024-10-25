@@ -4,3 +4,5 @@ duckdb
 pandas
 beautifulsoup4
 prefect
+
+jupyter

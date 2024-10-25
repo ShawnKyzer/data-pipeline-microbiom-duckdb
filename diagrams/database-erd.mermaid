@@ -1,0 +1,46 @@
+erDiagram
+    organisms ||--o{ genes : contains
+    genes ||--o{ gene_qualifiers : has
+    genes ||--o{ sequences : has
+
+    organisms {
+        integer organism_id PK
+        varchar accession
+        varchar organism_name
+        varchar taxonomy
+        integer genome_size
+        timestamp processing_date
+        varchar source_url UK
+    }
+
+    genes {
+        integer gene_id PK
+        integer organism_id FK
+        varchar locus_tag
+        varchar gene_name
+        varchar product
+        integer location_start
+        integer location_end
+        varchar(1) strand
+    }
+
+    gene_qualifiers {
+        integer qualifier_id PK
+        integer gene_id FK
+        varchar qualifier_name
+        varchar qualifier_value
+    }
+
+    sequences {
+        integer sequence_id PK
+        integer gene_id FK
+        varchar sequence_type
+        text sequence
+    }
+
+    processing_log {
+        varchar url PK
+        varchar status
+        timestamp processed_date
+        varchar error_message
+    }

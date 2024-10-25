@@ -1,0 +1,63 @@
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'primaryColor': '#85268B',
+    'primaryTextColor': '#000',
+    'primaryBorderColor': '#85268B',
+    'secondaryColor': '#FFB612',
+    'secondaryTextColor': '#000',
+    'secondaryBorderColor': '#85268B',
+    'tertiaryColor': '#85268B',
+    'tertiaryTextColor': '#000',
+    'tertiaryBorderColor': '#85268B',
+    'fontFamily': 'arial',
+    'fontSize': '16px'
+  }
+}}%%
+
+erDiagram
+    ORGANISMS ||--|{ GENES : "contains > HMP bacterial genome features"
+    GENES ||--|{ GENE_QUALIFIERS : "annotated by > GenBank qualifiers"
+    GENES ||--|{ SEQUENCES : "encoded by > DNA sequences"
+
+    ORGANISMS {
+        integer organism_id PK "Auto-incrementing unique identifier"
+        varchar accession "NCBI GenBank accession number (e.g., GCA_123456789)"
+        varchar organism_name "Scientific name (e.g., Escherichia coli str. K-12)"
+        varchar taxonomy "Full taxonomic lineage (Domain;Phylum;Class;...)"
+        integer genome_size "Total genome length in base pairs"
+        timestamp processing_date "Timestamp of data processing"
+        varchar source_url UK "Original HMP FTP URL for data traceability"
+    }
+
+    GENES {
+        integer gene_id PK "Auto-incrementing unique identifier"
+        integer organism_id FK "Reference to parent organism"
+        varchar locus_tag "Standardized gene identifier"
+        varchar gene_name "Common gene name or symbol"
+        varchar product "Protein/RNA product description"
+        integer location_start "Feature start position (1-based)"
+        integer location_end "Feature end position (inclusive)"
+        varchar strand "Coding strand direction (+/-)"
+    }
+
+    GENE_QUALIFIERS {
+        integer qualifier_id PK "Auto-incrementing unique identifier"
+        integer gene_id FK "Reference to parent gene feature"
+        varchar qualifier_name "GenBank qualifier type (EC_number/note/GO_term)"
+        varchar qualifier_value "Qualifier content or description"
+    }
+
+    SEQUENCES {
+        integer sequence_id PK "Auto-incrementing unique identifier"
+        integer gene_id FK "Reference to parent gene feature"
+        varchar sequence_type "Sequence type (DNA/RNA/protein)"
+        text sequence "Actual biological sequence"
+    }
+
+    PROCESSING_LOG {
+        varchar url PK "Source URL being processed"
+        varchar status "Processing status (SUCCESS/ERROR/IN_PROGRESS)"
+        timestamp processed_date "Processing completion timestamp"
+        varchar error_message "Detailed error description if failed"
+    }

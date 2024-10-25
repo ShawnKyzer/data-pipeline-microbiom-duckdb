@@ -19,6 +19,7 @@ from prefect.context import get_run_context
 from prefect.utilities.annotations import quote
 from prefect import variables
 from prefect.artifacts import create_markdown_artifact
+from prefect.artifacts import create_markdown_artifact
 @task(
     retries=3,
     retry_delay_seconds=30,
@@ -26,6 +27,70 @@ from prefect.artifacts import create_markdown_artifact
     cache_expiration=timedelta(hours=24)
 )
 def initialize_database(db_path: str) -> None:
+    """Initialize the DuckDB database with the schema."""
+    logger = get_run_logger()
+    logger.info(f"Initializing database at {db_path}")
+    
+    db = duckdb.connect(db_path)
+    tables = """
+    CREATE SEQUENCE IF NOT EXISTS organism_id_seq;
+    CREATE SEQUENCE IF NOT EXISTS gene_id_seq;
+    CREATE SEQUENCE IF NOT EXISTS qualifier_id_seq;
+    CREATE SEQUENCE IF NOT EXISTS sequence_id_seq;
+
+    CREATE TABLE IF NOT EXISTS organisms (
+        organism_id INTEGER PRIMARY KEY DEFAULT nextval('organism_id_seq'),
+        accession VARCHAR,
+        organism_name VARCHAR,
+        taxonomy VARCHAR,
+        genome_size INTEGER,
+        processing_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        source_url VARCHAR UNIQUE
+    );
+
+    CREATE TABLE IF NOT EXISTS genes (
+        gene_id INTEGER PRIMARY KEY DEFAULT nextval('gene_id_seq'),
+        organism_id INTEGER,
+        locus_tag VARCHAR,
+        gene_name VARCHAR,
+        product VARCHAR,
+        location_start INTEGER,
+        location_end INTEGER,
+        strand VARCHAR(1),
+        FOREIGN KEY (organism_id) REFERENCES organisms(organism_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS gene_qualifiers (
+        qualifier_id INTEGER PRIMARY KEY DEFAULT nextval('qualifier_id_seq'),
+        gene_id INTEGER,
+        qualifier_name VARCHAR,
+        qualifier_value VARCHAR,
+        FOREIGN KEY (gene_id) REFERENCES genes(gene_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS sequences (
+        sequence_id INTEGER PRIMARY KEY DEFAULT nextval('sequence_id_seq'),
+        gene_id INTEGER,
+        sequence_type VARCHAR,
+        sequence TEXT,
+        FOREIGN KEY (gene_id) REFERENCES genes(gene_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS processing_log (
+        url VARCHAR PRIMARY KEY,
+        status VARCHAR,
+        processed_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        error_message VARCHAR
+    );
+    """
+    
+    for statement in tables.split(';'):
+        if statement.strip():
+            db.execute(statement)
+    
+    db.close()
+    logger.info("Database initialization complete")
+
     """Initialize the DuckDB database with the schema."""
     logger = get_run_logger()
     logger.info(f"Initializing database at {db_path}")
@@ -201,11 +266,24 @@ def insert_organism_data(db_path: str, organism_data: Dict) -> None:
     db = duckdb.connect(db_path)
     
     try:
+        # Begin transaction
+        db.execute("BEGIN TRANSACTION")
+        
+        # Check if organism already exists
+        existing = db.execute(
+            "SELECT organism_id FROM organisms WHERE source_url = ?",
+            [organism_data['source_url']]
+        ).fetchone()
+        
+        if existing:
+            logger.info(f"Organism {organism_data['organism_name']} already exists, skipping")
+            db.execute("COMMIT")
+            return
+        
         # Insert organism
         db.execute("""
-            INSERT INTO organisms (accession, organism_name, taxonomy, genome_size, 
-                                 processing_date, source_url)
-            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?)
+            INSERT INTO organisms (accession, organism_name, taxonomy, genome_size, source_url)
+            VALUES (?, ?, ?, ?, ?)
             RETURNING organism_id
         """, [
             organism_data['accession'],
@@ -214,6 +292,7 @@ def insert_organism_data(db_path: str, organism_data: Dict) -> None:
             organism_data['genome_size'],
             organism_data['source_url']
         ])
+        
         organism_id = db.fetchone()[0]
         
         # Process features in batches
@@ -260,23 +339,25 @@ def insert_organism_data(db_path: str, organism_data: Dict) -> None:
         
         # Log success
         db.execute("""
-            INSERT INTO processing_log (url, status, processed_date)
-            VALUES (?, 'SUCCESS', CURRENT_TIMESTAMP)
+            INSERT INTO processing_log (url, status)
+            VALUES (?, 'SUCCESS')
         """, [organism_data['source_url']])
         
+        # Commit transaction
+        db.execute("COMMIT")
         logger.info(f"Successfully inserted data for {organism_data['organism_name']}")
         
     except Exception as e:
         logger.error(f"Error inserting data: {str(e)}")
+        db.execute("ROLLBACK")
         db.execute("""
-            INSERT INTO processing_log (url, status, processed_date, error_message)
-            VALUES (?, 'ERROR', CURRENT_TIMESTAMP, ?)
+            INSERT INTO processing_log (url, status, error_message)
+            VALUES (?, 'ERROR', ?)
         """, [organism_data['source_url'], str(e)])
         raise
     
     finally:
         db.close()
-
 @task
 def cleanup_temp_dir(temp_dir: str) -> None:
     """Clean up temporary directory."""
@@ -340,6 +421,7 @@ def generate_processing_report(db_path: str) -> str:
     
     return report
 
+
 @flow(
     name="HMP Data Processing Pipeline",
     description="Process Human Microbiome Project bacterial genome data",
@@ -363,9 +445,10 @@ def process_hmp_data(
     
     logger.info(f"Found {len(to_process)} organisms to process")
     
-    # Process organisms using async with concurrent execution
-    async def process_organism(org_url: str):
+    def process_organism(org_url: str):
+        """Process a single organism synchronously."""
         try:
+            logger.info(f"Processing {org_url}")
             # Find GBK file
             gbk_url = find_gbk_file(org_url)
             
@@ -378,26 +461,22 @@ def process_hmp_data(
             
             # Cleanup
             cleanup_temp_dir(temp_dir)
+            logger.info(f"Completed processing {org_url}")
             
         except Exception as e:
             logger.error(f"Error processing {org_url}: {str(e)}")
     
-    async def process_all_organisms():
-        # Create a thread pool for concurrent execution
-        with ThreadPoolExecutor(max_workers=max_concurrent) as executor:
-            # Create tasks for each organism
-            tasks = []
-            loop = asyncio.get_event_loop()
-            
-            for org_url in to_process:
-                task = loop.run_in_executor(executor, process_organism, org_url)
-                tasks.append(task)
-            
-            # Wait for all tasks to complete
-            await asyncio.gather(*tasks)
-    
-    # Run the async processing
-    asyncio.run(process_all_organisms())
+    # Process organisms using ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=max_concurrent) as executor:
+        # Submit all tasks to the executor
+        futures = [executor.submit(process_organism, url) for url in to_process]
+        
+        # Wait for all tasks to complete
+        for future in futures:
+            try:
+                future.result()  # This will raise any exceptions that occurred
+            except Exception as e:
+                logger.error(f"Task failed with error: {str(e)}")
     
     # Generate and save report
     report = generate_processing_report(db_path)

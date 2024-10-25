@@ -1,0 +1,51 @@
+flowchart LR
+    classDef start fill:#2ecc71,stroke:#27ae60,stroke-width:2px,color:white
+    classDef ending fill:#e74c3c,stroke:#c0392b,stroke-width:2px,color:white
+    classDef db fill:#3498db,stroke:#2980b9,stroke-width:2px,color:white
+    classDef fetch fill:#9b59b6,stroke:#8e44ad,stroke-width:2px,color:white
+    classDef process fill:#f1c40f,stroke:#f39c12,stroke-width:2px,color:black
+    classDef report fill:#1abc9c,stroke:#16a085,stroke-width:2px,color:white
+    
+    Start([fa:fa-play Start]):::start --> init[fa:fa-database initialize_database]:::db
+    init --> getDir[fa:fa-download get_organism_directories]:::fetch
+    getDir --> getProc[fa:fa-table get_processed_organisms]:::db
+    getProc --> find[fa:fa-search find_gbk_file]:::fetch
+    find --> download[fa:fa-file-archive download_and_extract_gbk]:::process
+    download --> parse[fa:fa-code parse_gbk_data]:::process
+    parse --> insert[fa:fa-database insert_organism_data]:::db
+    download --> cleanup[fa:fa-trash cleanup_temp_dir]:::process
+    insert --> report[fa:fa-chart-bar generate_processing_report]:::report
+    report --> artifact[fa:fa-file-alt create_markdown_artifact]:::report
+    artifact --> Done([fa:fa-flag-checkered End]):::ending
+
+    %% Annotations
+    subgraph Init [Initialization Phase]
+        Start
+        init
+        note1[Initializes DuckDB schema with sequences and tables]
+        init --- note1
+    end
+
+    subgraph Fetch [Data Collection Phase]
+        getDir
+        getProc
+        find
+        note2[Fetches from NCBI HMP FTP server]
+        getDir --- note2
+    end
+
+    subgraph Process [Processing Phase]
+        download
+        parse
+        insert
+        cleanup
+        note3[Parallel processing with ThreadPoolExecutor]
+        download --- note3
+    end
+
+    subgraph Report [Reporting Phase]
+        report
+        artifact
+        note4[Generates markdown report with statistics]
+        report --- note4
+    end

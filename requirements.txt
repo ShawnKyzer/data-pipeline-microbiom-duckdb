@@ -6,3 +6,7 @@ beautifulsoup4
 prefect
 
 jupyter
+
+pytest
+pytest-asyncio 
+pytest-mock

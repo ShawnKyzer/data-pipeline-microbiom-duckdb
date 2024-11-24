@@ -1,118 +1,176 @@
-# Data Pipeline Microbiome DuckDB 🦠 🔬
+# Data Pipeline Microbiome DuckDB 🦠 🔬 🦆 📊
 
-## Project Overview 🎯
+## Prerequisites and Setup Guide 📚
 
-This project is a custom data pipeline built using DuckDB for processing and analyzing microbiome data, with a focus on the Human Microbiome Project (HMP). It leverages the high-performance capabilities of DuckDB, an in-process SQL database, to efficiently handle and analyze large-scale microbiome datasets.
+### Required Software
+- Python 3.11
+- Git
+- VS Code (Recommended) or PyCharm
 
-## ✨ Key Features
+### System Requirements
+- Minimum 8GB RAM
+- 10GB free disk space
+- Unix-based system Linux preferred; Windows 10/11 compatible
 
-- 🔄 Custom data pipeline for microbiome data processing
-- ⚡ Integration with DuckDB for high-performance data operations
-- 📊 Interactive data analysis with Jupyter notebooks
-- 📈 Visualization of data pipeline flow and database structure
-- 🧬 HMP microbiome analysis capabilities
+### Python Knowledge Prerequisites
+- Basic Python syntax
+- Understanding of virtual environments
+- Basic SQL knowledge
+- Familiarity with pandas
 
-## 📁 Project Structure
+## Project Structure 📁
 
 ```
-data-pipeline-microbiom-duckdb/
-├── 📊 /diagrams          # Visual representations of pipeline flow
-├── 📓 /notebooks         # Jupyter notebooks for analysis
-├── 💾 hmp_microbiome.db  # DuckDB database file
-├── 🚀 main.py           # Main pipeline execution script
-└── 📝 requirements.txt   # Project dependencies
+data-pipeline-microbiom-duckdb
+├── application_development/      # Streamlit applications
+│   ├── run_streamlit.sh
+│   ├── streamlit_app-amaze.py
+│   └── streamlit_app.py
+├── data_ingestion_pipeline/     # Core pipeline components
+│   ├── hmp_data_ingestions_pipeline.py
+│   ├── hmp_data_ingestions_pipeline_tests.py
+│   └── hmp_microbiome.duckdb    # DuckDB database created by pipeline
+├── diagrams/                    # Project documentation
+│   ├── biom_erd.png
+│   ├── database-erd-detailed.mermaid
+│   ├── database-erd-detailed.png
+│   ├── database-erd.mermaid
+│   ├── data_pipeline_flow.png
+│   └── prefect-pipeline.mermaid
+├── notebooks/                   # Tutorial notebooks
+│   ├── Lesson_2_Basic_HMP_Analytics.ipynb
+│   └── Lesson_3_Optimize_and_Export.ipynb
+├── requirements.txt            # Project dependencies
+└── README.md                  # Project documentation
 ```
 
-## 🚀 Getting Started
+## Getting Started 🚀
 
-### Prerequisites
+### Initial Setup
 
-- 🐍 Python 3.11
-- 🔧 Virtual environment (recommended)
-
-### 🔧 Installation
-
-1. Clone the repository:
+1. **Clone the Repository**
 ```bash
-git clone https://github.com/yourusername/data-pipeline-microbiom-duckdb.git
-cd data-pipeline-microbiom-duckdb
+git clone https://github.com/ShawnKyzer/data-pipeline-microbiom-duckdb.git
+cd data-pipeline-analytics
 ```
 
-2. Create and activate a virtual environment:
+2. **Create Virtual Environment**
 ```bash
+# Unix/MacOS
 python -m venv venv
-source venv/bin/activate  # On Windows: .\venv\Scripts\activate
+source venv/bin/activate
+
+# Windows
+python -m venv venv
+.\venv\Scripts\activate
 ```
 
-3. Install dependencies:
+3. **Install Dependencies**
 ```bash
 pip install -r requirements.txt
 ```
 
-### 💻 Usage
+## Learning Path 📘
 
-1. Activate the virtual environment:
-```bash
-source venv/bin/activate  # On Windows: .\venv\Scripts\activate
-```
+### Lesson 1: DuckDB Fundamentals & Pipeline Basics
+- Introduction to DuckDB
+- Running the ingestion pipeline
+- Basic SQL queries with DuckDB
+- Understanding the data model
 
-2. Run the main pipeline:
+### Lesson 2: Analytics & Optimization
+- Working through Lesson 2 notebook
+- Basic analytics queries
+- Performance optimization
+- Data exploration techniques
+
+### Lesson 3 & 4: Advanced Analytics & Streamlit
+- Working through Lesson 3 notebook
+- Building interactive dashboards
+- Deploying Streamlit applications
+- Advanced visualization techniques
+
+## Running the Project Components 🔧
+
+### 1. Data Pipeline
 ```bash
-python -m pytest -v hmp_data_ingestions_pipeline_tests.py
+cd data_ingestion_pipeline
 python hmp_data_ingestions_pipeline.py
 ```
 
-3. Launch Jupyter Lab for interactive analysis:
+### 2. Running Tests
+```bash
+python -m pytest -v hmp_data_ingestions_pipeline_tests.py
+```
+
+### 3. Launch Streamlit Application
+```bash
+cd application_development
+bash run_streamlit.sh
+# Or directly with Python:
+streamlit run streamlit_app.py
+```
+
+### 4. Interactive Notebooks
 ```bash
 jupyter lab
+# Navigate to notebooks/Lesson_2_Basic_HMP_Analytics.ipynb
 ```
-Then navigate to `notebooks/hmp-microbiome-analysis.ipynb` 📓
 
-## 🔄 Data Pipeline Flow
+## Key Components 🔑
 
-The pipeline processes microbiome data through these key stages:
+### Prefect / DuckDB Pipeline
+- High-performance analytical database
+- SQL interface for data processing
+- Optimized for analytical queries
+- Integrated with Python ecosystem
 
-1. 📥 **Data Ingestion**
-   - Raw data import
-   - Format validation
+### Streamlit Applications
+- Interactive data visualization
+- Real-time analytics dashboard
+- Custom filtering and analysis
+- Shareable web interface
 
-2. 🧹 **Data Cleaning**
-   - Quality control
-   - Preprocessing
-   - Normalization
+### Analytics Notebooks
+- Step-by-step tutorials
+- Performance optimization techniques
+- Query optimization examples
+- Advanced analytical methods
 
-3. 💽 **DuckDB Operations**
-   - Data storage
-   - Query optimization
-   - Index management
 
-4. 📊 **Analysis & Visualization**
-   - Statistical analysis
-   - Interactive visualization
-   - Report generation
+## Common Issues and Solutions 🔧
 
-## 🤝 Contributing
+### DuckDB Issues
+- **Connection Problems**: Ensure database file path is correct
+- **Memory Issues**: Monitor memory usage with large datasets
+- **Performance**: Check query optimization and indexing
 
-We welcome contributions! Here's how you can help:
+### Streamlit Issues
+- **Port Conflicts**: Change port in run_streamlit.sh
+- **Display Problems**: Check browser compatibility
+- **Performance**: Optimize data loading and caching
 
-1. 🍴 Fork the repository
-2. 🌿 Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. 💾 Commit your changes (`git commit -m 'Add amazing feature'`)
-4. 📤 Push to the branch (`git push origin feature/amazing-feature`)
-5. 🎯 Open a Pull Request
+## Additional Resources 📚
 
-## 📄 License
+- [DuckDB Documentation](https://duckdb.org/docs/)
+- [Streamlit Documentation](https://docs.streamlit.io)
+- [Python DuckDB API](https://duckdb.org/docs/api/python/overview)
+- [Streamlit Components](https://streamlit.io/components)
+- [NIH Human Microbiome Project](https://hmpdacc.org/)
 
-This project is licensed under the [MIT License](LICENSE) - see the LICENSE file for details.
 
-## 🙏 Acknowledgments
+## Support and Contact 📧
 
-- 🧬 Human Microbiome Project (HMP) for the microbiome data
-- 🦆 DuckDB team for their excellent database engine
-- 👥 All contributors and maintainers of dependent libraries
+- Course Instructor: Shawn Kyzer
+- Email: shawnkyzer@gmail.com
 
-## 📊 Performance Metrics
+## License 📄
 
-- Processes 1M+ sequences per minute
-- Handles datasets up to 100GB
-- Optimized DuckDB queries with sub-second response time
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments 🙏
+
+- DuckDB Development Team
+- Streamlit Team
+- Contributing Students and Teaching Assistants
+- [NIH Human Microbiome Project](https://en.wikipedia.org/wiki/Human_Microbiome_Project)

@@ -58,7 +58,8 @@ source venv/bin/activate  # On Windows: .\venv\Scripts\activate
 
 2. Run the main pipeline:
 ```bash
-python main.py
+python -m pytest -v hmp_data_ingestions_pipeline_tests.py
+python hmp_data_ingestions_pipeline.py
 ```
 
 3. Launch Jupyter Lab for interactive analysis:

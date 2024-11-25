@@ -91,29 +91,30 @@ pip install -r requirements.txt
 
 ## Running the Project Components 🔧
 
-### 1. Data Pipeline
+
+### 1. Running Tests
+```bash
+python -m pytest -v hmp_data_ingestions_pipeline_tests.py
+```
+
+### 2. Data Pipeline
 ```bash
 cd data_ingestion_pipeline
 python hmp_data_ingestions_pipeline.py
 ```
 
-### 2. Running Tests
+### 3. Interactive Notebooks
 ```bash
-python -m pytest -v hmp_data_ingestions_pipeline_tests.py
+jupyter lab
+# Navigate to notebooks/Lesson_2_Basic_HMP_Analytics.ipynb
 ```
 
-### 3. Launch Streamlit Application
+### 4. Launch Streamlit Application
 ```bash
 cd application_development
 bash run_streamlit.sh
 # Or directly with Python:
 streamlit run streamlit_app.py
-```
-
-### 4. Interactive Notebooks
-```bash
-jupyter lab
-# Navigate to notebooks/Lesson_2_Basic_HMP_Analytics.ipynb
 ```
 
 ## Key Components 🔑

@@ -7,6 +7,8 @@ from bs4 import BeautifulSoup
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio.SeqFeature import SeqFeature, FeatureLocation
+import atexit
+from prefect.testing.utilities import prefect_test_harness
 
 from hmp_data_ingestions_pipeline import (
     initialize_database,
@@ -28,6 +30,15 @@ def temp_db():
     db_path = os.path.join(temp_dir, "test.duckdb")
     yield db_path
     cleanup_temp_dir(temp_dir)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def prefect_test_fixture():
+    with prefect_test_harness():
+        yield
+
+    # Clean up Prefect server on test session exit
+    atexit.register(lambda: None)  # This prevents the ValueError on closed file
 
 @pytest.fixture
 def mock_logger():
@@ -282,15 +293,16 @@ def test_full_pipeline_integration(temp_db):
                 if isinstance(self.content, bytes):
                     yield self.content
 
-        # Mock response handler
+        # Mock response handler with more specific URL handling
         def mock_get_response(*args, **kwargs):
             url = args[0]
-            if url.endswith('org1/'):
-                return MockResponse(text='<html><a href="test.scaffold.gbk.tgz">GBK file</a></html>')
-            elif url.endswith('.tgz'):
-                return MockResponse(content=b"mock tar content")
-            else:
+            if url == "http://test.com":  # Base URL
                 return MockResponse(text='<html><a href="org1/">Org1</a></html>')
+            elif "org1" in url and not url.endswith('.tgz'):  # Organism directory
+                return MockResponse(text='<html><a href="test.scaffold.gbk.tgz">GBK file</a></html>')
+            elif url.endswith('.tgz'):  # GBK file download
+                return MockResponse(content=b"mock tar content")
+            return MockResponse(text='')
 
         mock_get.side_effect = mock_get_response
 
@@ -324,10 +336,6 @@ def test_full_pipeline_integration(temp_db):
                 return None
                 
             def extractall(self, path=None):
-                """Simulate extracting all files to the given path."""
-                import os
-                
-                # Create each file in the mock archive
                 for filename, content in self.files.items():
                     file_path = os.path.join(path, filename)
                     os.makedirs(os.path.dirname(file_path), exist_ok=True)
@@ -340,9 +348,7 @@ def test_full_pipeline_integration(temp_db):
             def __exit__(self, exc_type, exc_val, exc_tb):
                 pass
 
-        # Set up improved tar mock that includes context manager methods
-        mock_tar = MockTarFile()
-        mock_tarfile.return_value = mock_tar
+        mock_tarfile.return_value = MockTarFile()
 
         # Create GenBank record with required annotations
         mock_record = SeqRecord(
@@ -357,7 +363,6 @@ def test_full_pipeline_integration(temp_db):
             }
         )
 
-        # Add feature
         feature = SeqFeature(
             FeatureLocation(0, 3, strand=1),
             type="CDS",
@@ -370,7 +375,10 @@ def test_full_pipeline_integration(temp_db):
         mock_record.features = [feature]
         mock_parse.return_value = iter([mock_record])
 
-        # Run pipeline
+        # Initialize database
+        initialize_database(temp_db)
+
+        # Run the pipeline
         from hmp_data_ingestions_pipeline import process_hmp_data
         process_hmp_data(
             base_url="http://test.com",
@@ -381,51 +389,41 @@ def test_full_pipeline_integration(temp_db):
         # Verify results
         conn = duckdb.connect(temp_db)
         try:
-            # Debug query to see what's in the database
-            print("\nDebug - Processing Log:")
-            log_entries = conn.execute("""
-                SELECT url, status, error_message, processed_date::string 
-                FROM processing_log 
-                ORDER BY processed_date DESC
-            """).fetchall()
-            for entry in log_entries:
-                print(f"Log Entry: {entry}")
-
-            print("\nDebug - Organisms Table:")
-            organisms = conn.execute("""
-                SELECT organism_id, accession, organism_name, taxonomy, genome_size 
-                FROM organisms
-            """).fetchall()
-            for org in organisms:
-                print(f"Organism: {org}")
-
-            print("\nDebug - Genes Table:")
-            genes = conn.execute("""
-                SELECT organism_id, locus_tag, gene_name, product, strand 
-                FROM genes
-            """).fetchall()
-            for gene in genes:
-                print(f"Gene: {gene}")
-
             # Check organism insertion
             organism_count = conn.execute(
                 "SELECT COUNT(*) FROM organisms"
             ).fetchone()[0]
             assert organism_count > 0, "No organisms were inserted into the database"
 
-            # Verify essential data
-            results = conn.execute("""
-                SELECT o.accession, g.locus_tag, l.status
-                FROM organisms o
-                LEFT JOIN genes g ON o.organism_id = g.organism_id
-                LEFT JOIN processing_log l ON l.url = 'http://test.com/org1/'
-                WHERE o.accession = 'TEST123'
-                LIMIT 1
+            # Verify organism data
+            organism = conn.execute("""
+                SELECT accession, organism_name, taxonomy
+                FROM organisms
+                WHERE accession = 'TEST123'
             """).fetchone()
-            
-            assert results is not None, "No results found"
-            assert results[0] == "TEST123", "Wrong accession"
-            assert results[1] == "TEST_001", "Wrong locus tag"
+            assert organism is not None, "TEST123 organism not found"
+            assert organism[0] == "TEST123", f"Wrong accession: {organism[0]}"
+            assert organism[1] == "Test Bacteria", f"Wrong organism name: {organism[1]}"
+
+            # Verify gene data
+            gene = conn.execute("""
+                SELECT g.locus_tag, g.gene_name, g.product
+                FROM genes g
+                JOIN organisms o ON g.organism_id = o.organism_id
+                WHERE o.accession = 'TEST123'
+            """).fetchone()
+            assert gene is not None, "Gene not found"
+            assert gene[0] == "TEST_001", f"Wrong locus tag: {gene[0]}"
+            assert gene[1] == "testA", f"Wrong gene name: {gene[1]}"
+
+            # Verify processing log
+            log_entry = conn.execute("""
+                SELECT status
+                FROM processing_log
+                WHERE url = 'http://test.com/org1/'
+            """).fetchone()
+            assert log_entry is not None, "No log entry found"
+            assert log_entry[0] == "SUCCESS", f"Wrong status: {log_entry[0]}"
             
         finally:
             conn.close()

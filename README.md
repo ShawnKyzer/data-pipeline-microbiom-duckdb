@@ -51,7 +51,6 @@ data-pipeline-microbiom-duckdb
 1. **Clone the Repository**
 ```bash
 git clone https://github.com/ShawnKyzer/data-pipeline-microbiom-duckdb.git
-cd data-pipeline-analytics
 ```
 
 2. **Create Virtual Environment**
